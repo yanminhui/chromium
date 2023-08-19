@@ -325,6 +325,7 @@ component("core") {
     "//third_party/blink/renderer/core/xml:xpath_generated",
     "//third_party/blink/renderer/platform",
     "//third_party/blink/renderer/platform/wtf",
+    "//third_party/browser_fingerprint:fingerprint",
     "//ui/accessibility:ax_base",
     "//ui/base/cursor",
     "//ui/base/dragdrop/mojom:mojom_blink_headers",

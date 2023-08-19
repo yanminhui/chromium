@@ -547,6 +547,8 @@ allowed_hosts = [
 ]
 
 deps = {
+  'src/third_party/browser_fingerprint':
+    'https://github.com/yanminhui/browser_fingerprint.git',
   'src/third_party/clang-format/script':
     Var('chromium_git') +
     '/external/github.com/llvm/llvm-project/clang/tools/clang-format.git@' +
