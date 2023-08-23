@@ -30,6 +30,7 @@
 
 #include "base/containers/contains.h"
 #include "base/feature_list.h"
+#include "base/no_destructor.h"
 #include "base/numerics/checked_math.h"
 #include "base/synchronization/lock.h"
 #include "base/task/single_thread_task_runner.h"
@@ -134,6 +135,10 @@
 #include "third_party/blink/renderer/platform/wtf/functional.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_builder.h"
 #include "third_party/blink/renderer/platform/wtf/text/string_utf8_adaptor.h"
+#include "third_party/browser_fingerprint/fingerprint/fingerprint_context.h"
+#include "third_party/browser_fingerprint/fingerprint/settings.h"
+#include "third_party/browser_fingerprint/fingerprint/settings_keys.h"
+#include "third_party/browser_fingerprint/fingerprint/webgl_noise.h"
 #include "third_party/skia/include/core/SkImage.h"
 #include "ui/gfx/geometry/size.h"
 
@@ -2295,6 +2300,24 @@ void WebGLRenderingContextBase::BufferDataImpl(GLenum target,
 
   buffer->SetSize(size);
 
+  using namespace fingerprint;
+  auto* fp_context = FPcontextPtr();
+  if (fp_context && data && 0 < size && size % sizeof(GLfloat) == 0 &&
+      fp_context->GetSettings().HasKey(gkWebGLImageNoises)) {
+    using FloatArray = WTF::Vector<GLfloat>;
+    static base::NoDestructor<FloatArray> pnoises{[fp_context]() {
+      FloatArray fa;
+      fp_context->GetSettings().Get(gkWebGLImageNoises, fa);
+      return fa;
+    }()};
+
+    auto len = size / sizeof(GLfloat);
+    GLfloat out[len];
+    fingerprint::GLapplyNoise(out, data, len, *pnoises);
+    ContextGL()->BufferData(target, static_cast<GLsizeiptr>(size), out, usage);
+    return;
+  }
+
   ContextGL()->BufferData(target, static_cast<GLsizeiptr>(size), data, usage);
 }
 
@@ -3814,14 +3837,19 @@ ScriptValue WebGLRenderingContextBase::getParameter(ScriptState* script_state,
       return ScriptValue::CreateNull(script_state->GetIsolate());
     case WebGLDebugRendererInfo::kUnmaskedRendererWebgl:
       if (ExtensionEnabled(kWebGLDebugRendererInfoName)) {
+        using namespace fingerprint;
+        auto* fp_context = FPcontextPtr();
+        auto renderer = String(ContextGL()->GetString(GL_RENDERER));
+        if (fp_context && fp_context->GetSettings().HasKey(gkWebGLRenderer)) {
+          renderer =
+              String(fp_context->GetSettings().GetString(gkWebGLRenderer));
+        }
         if (IdentifiabilityStudySettings::Get()->ShouldSampleType(
                 blink::IdentifiableSurface::Type::kWebGLParameter)) {
           RecordIdentifiableGLParameterDigest(
-              pname, IdentifiabilityBenignStringToken(
-                         String(ContextGL()->GetString(GL_RENDERER))));
+              pname, IdentifiabilityBenignStringToken(renderer));
         }
-        return WebGLAny(script_state,
-                        String(ContextGL()->GetString(GL_RENDERER)));
+        return WebGLAny(script_state, renderer);
       }
       SynthesizeGLError(
           GL_INVALID_ENUM, "getParameter",
@@ -3829,14 +3857,18 @@ ScriptValue WebGLRenderingContextBase::getParameter(ScriptState* script_state,
       return ScriptValue::CreateNull(script_state->GetIsolate());
     case WebGLDebugRendererInfo::kUnmaskedVendorWebgl:
       if (ExtensionEnabled(kWebGLDebugRendererInfoName)) {
+        using namespace fingerprint;
+        auto* fp_context = FPcontextPtr();
+        auto vendor = String(ContextGL()->GetString(GL_VENDOR));
+        if (fp_context && fp_context->GetSettings().HasKey(gkWebGLVendor)) {
+          vendor = String(fp_context->GetSettings().GetString(gkWebGLVendor));
+        }
         if (IdentifiabilityStudySettings::Get()->ShouldSampleType(
                 blink::IdentifiableSurface::Type::kWebGLParameter)) {
           RecordIdentifiableGLParameterDigest(
-              pname, IdentifiabilityBenignStringToken(
-                         String(ContextGL()->GetString(GL_VENDOR))));
+              pname, IdentifiabilityBenignStringToken(vendor));
         }
-        return WebGLAny(script_state,
-                        String(ContextGL()->GetString(GL_VENDOR)));
+        return WebGLAny(script_state, vendor);
       }
       SynthesizeGLError(
           GL_INVALID_ENUM, "getParameter",
