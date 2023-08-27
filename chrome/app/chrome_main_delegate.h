@@ -16,6 +16,7 @@
 #include "components/memory_system/memory_system.h"
 #include "content/public/app/content_main_delegate.h"
 #include "third_party/abseil-cpp/absl/types/optional.h"
+#include "third_party/browser_fingerprint/fingerprint/fingerprint_context.h"
 
 namespace base {
 class CommandLine;
@@ -92,6 +93,8 @@ class ChromeMainDelegate : public content::ContentMainDelegate {
 
   void InitializeMemorySystem();
 
+  absl::optional<int> StartupFPcontext(bool is_browser);
+
   std::unique_ptr<ChromeContentBrowserClient> chrome_content_browser_client_;
   std::unique_ptr<ChromeContentUtilityClient> chrome_content_utility_client_;
   std::unique_ptr<tracing::TracingSamplerProfiler> tracing_sampler_profiler_;
@@ -103,6 +106,8 @@ class ChromeMainDelegate : public content::ContentMainDelegate {
 #if BUILDFLAG(IS_CHROMEOS_LACROS)
   std::unique_ptr<chromeos::LacrosService> lacros_service_;
 #endif
+
+  fingerprint::FPcontext fp_context_;
 };
 
 #endif  // CHROME_APP_CHROME_MAIN_DELEGATE_H_

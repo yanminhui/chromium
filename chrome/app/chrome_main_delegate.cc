@@ -673,6 +673,12 @@ absl::optional<int> ChromeMainDelegate::PostEarlyInitialization(
   DCHECK(base::ThreadPoolInstance::Get());
   const auto* invoked_in_browser =
       absl::get_if<InvokedInBrowserProcess>(&invoked_in);
+
+  absl::optional<int> exit_code = StartupFPcontext(!!invoked_in_browser);
+  if (exit_code.has_value()) {
+    return exit_code;
+  }
+
   if (!invoked_in_browser) {
     CommonEarlyInitialization();
     return absl::nullopt;
@@ -1817,4 +1823,27 @@ void ChromeMainDelegate::InitializeMemorySystem() {
                                    AllocationTraceRecorderInclusion::kDynamic,
                                process_type)
       .Initialize(memory_system_);
+}
+
+absl::optional<int> ChromeMainDelegate::StartupFPcontext(bool is_browser) {
+  // regist path to fingerprint.
+  auto dir_home = []() -> std::filesystem::path {
+    base::FilePath dir;
+    base::PathService::Get(base::DIR_HOME, &dir);
+    return dir.value();
+  };
+  fp_context_.RegisterPathProvider(fingerprint::PathService::kDirHome,
+                                   dir_home);
+
+  if (is_browser) {
+    // parse settings failed.
+    bool loaded = false;
+    auto settings = fp_context_.GetSettings(&loaded);
+    if (loaded && settings.IsEmpty()) {
+      return chrome::RESULT_CODE_MISSING_DATA;
+    }
+  } else {
+    // render: register mojo interface.
+  }
+  return absl::nullopt;
 }
