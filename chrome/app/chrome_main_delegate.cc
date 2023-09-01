@@ -95,6 +95,7 @@
 #include "services/tracing/public/cpp/stack_sampling/tracing_sampler_profiler.h"
 #include "third_party/abseil-cpp/absl/types/variant.h"
 #include "third_party/blink/public/common/features.h"
+#include "third_party/browser_fingerprint/fingerprint/fingerprint_switches.h"
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/base/resource/scoped_startup_resource_bundle.h"
@@ -1835,15 +1836,22 @@ absl::optional<int> ChromeMainDelegate::StartupFPcontext(bool is_browser) {
   fp_context_.RegisterPathProvider(fingerprint::PathService::kDirHome,
                                    dir_home);
 
+  auto* command_line = base::CommandLine::ForCurrentProcess();
+  if (command_line->HasSwitch(fingerprint::switches::kFingerprintPreferences)) {
+    fp_context_.RegisterSettingsProvider([command_line]() {
+      return command_line->GetSwitchValueASCII(
+          fingerprint::switches::kFingerprintPreferences);
+    });
+  }
   if (is_browser) {
-    // parse settings failed.
     bool loaded = false;
     auto settings = fp_context_.GetSettings(&loaded);
     if (loaded && settings.IsEmpty()) {
       return chrome::RESULT_CODE_MISSING_DATA;
     }
-  } else {
-    // render: register mojo interface.
+    command_line->AppendSwitchASCII(
+        fingerprint::switches::kFingerprintPreferences,
+        fp_context_.GetSettingsCipherData());
   }
   return absl::nullopt;
 }
