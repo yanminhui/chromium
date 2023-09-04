@@ -61,6 +61,11 @@ default_args = {
   fuchsia_target_api_level = 11
 
   devtools_visibility = [ "*" ]
+
+  # Enable H.264
+  # https://stackoverflow.com/questions/56213098/which-chromium-version-has-h-264-support
+  proprietary_codecs = true 
+  ffmpeg_branding = "Chrome"
 }
 
 # These are the targets to skip header checking by default. The files in targets
